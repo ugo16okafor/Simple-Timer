@@ -1,0 +1,8 @@
+#line 1 "C:\\Users\\HP\\Documents\\GitHub\\Simple-Timer\\.vscode\\arduino.json"
+{
+    "configuration": "cpu=atmega328",
+    "board": "arduino:avr:nano",
+    "port": "COM11",
+    "sketch": "Simple-Timer.ino",
+    "output": "build"
+}
