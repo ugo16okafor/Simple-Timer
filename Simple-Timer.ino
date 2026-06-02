@@ -21,8 +21,8 @@
 #define DIO_PIN       11
 #define RELAY1_PIN    2
 #define RELAY2_PIN     9
-#define BTN_START_PIN  8
-#define BTN_STOP_PIN   7
+#define BTN_START_PIN  7
+#define BTN_STOP_PIN   8
 
 // ----- Relay States -----
 // IMPORTANT: Most Arduino relay modules are Active-LOW. 
