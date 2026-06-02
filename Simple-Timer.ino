@@ -33,6 +33,7 @@
 // ----- Constants -----
 #define TIMER_START_SEC (10 * 60) // 10 minutes (600 seconds)
 #define RELAY2_DURATION_SEC 15    // 15 seconds
+#define RELAY_COOLDOWN_MS 2000    // 2 seconds lockout to prevent rapid cycling
 
 // Create display object
 TM1637Display display(CLK_PIN, DIO_PIN);
@@ -48,6 +49,7 @@ enum State {
 State currentState = STATE_IDLE;
 
 unsigned long previousMillis = 0;
+unsigned long lastStateChangeMillis = 0; // Tracks when the relay state last changed
 int timeRemaining = 0; // in seconds
 
 bool lastBtnStart = HIGH;
@@ -77,20 +79,26 @@ void setup() {
 void loop() {
   unsigned long currentMillis = millis();
 
-  // ----- Button Reading & Debouncing -----
+  // ----- Button Reading & Debouncing with Cooldown -----
   bool startPressed = false;
   bool stopPressed = false;
 
   bool currentBtnStart = digitalRead(BTN_START_PIN);
   if (lastBtnStart == HIGH && currentBtnStart == LOW) {
-    startPressed = true;
+    // Only accept press if 2 seconds have passed since the last state change
+    if (currentMillis - lastStateChangeMillis >= RELAY_COOLDOWN_MS) {
+      startPressed = true;
+    }
     delay(50); // Quick debounce
   }
   lastBtnStart = currentBtnStart;
 
   bool currentBtnStop = digitalRead(BTN_STOP_PIN);
   if (lastBtnStop == HIGH && currentBtnStop == LOW) {
-    stopPressed = true;
+    // Only accept press if 2 seconds have passed since the last state change
+    if (currentMillis - lastStateChangeMillis >= RELAY_COOLDOWN_MS) {
+      stopPressed = true;
+    }
     delay(50); // Quick debounce
   }
   lastBtnStop = currentBtnStop;
@@ -99,63 +107,63 @@ void loop() {
   switch (currentState) {
     case STATE_IDLE:
       if (startPressed) {
-        timeRemaining = TIMER_START_SEC; // Load 10 minutes
+        timeRemaining = TIMER_START_SEC; 
         currentState = STATE_RUNNING;
-        digitalWrite(RELAY1_PIN, RELAY_ON); // Turn ON Relay 1
+        digitalWrite(RELAY1_PIN, RELAY_ON); 
         previousMillis = currentMillis;
+        lastStateChangeMillis = currentMillis; // Log state change
       }
       break;
 
     case STATE_RUNNING:
       if (stopPressed) {
-        // Stop (Pause) the timer
         currentState = STATE_PAUSED;
-        digitalWrite(RELAY1_PIN, RELAY_OFF); // Turn OFF Relay 1
+        digitalWrite(RELAY1_PIN, RELAY_OFF); 
+        lastStateChangeMillis = currentMillis; // Log state change
       } else if (currentMillis - previousMillis >= 1000) {
         previousMillis += 1000;
         timeRemaining--;
         
         if (timeRemaining <= 0) {
-          // Timer finished!
-          digitalWrite(RELAY1_PIN, RELAY_OFF); // Turn OFF Relay 1
+          digitalWrite(RELAY1_PIN, RELAY_OFF); 
           
-          // Start Relay 2 sequence
           timeRemaining = RELAY2_DURATION_SEC;
           currentState = STATE_RELAY2_ACTIVE;
-          digitalWrite(RELAY2_PIN, RELAY_ON); // Turn ON Relay 2
+          digitalWrite(RELAY2_PIN, RELAY_ON); 
+          lastStateChangeMillis = currentMillis; // Log state change
         }
       }
       break;
 
     case STATE_PAUSED:
       if (startPressed) {
-        // Resume running
         currentState = STATE_RUNNING;
         digitalWrite(RELAY1_PIN, RELAY_ON);
         previousMillis = currentMillis;
+        lastStateChangeMillis = currentMillis; // Log state change
       } else if (stopPressed) {
-        // Reset the timer when STOP is pressed a second time
         timeRemaining = 0;
         currentState = STATE_IDLE;
         digitalWrite(RELAY1_PIN, RELAY_OFF);
         digitalWrite(RELAY2_PIN, RELAY_OFF);
+        lastStateChangeMillis = currentMillis; // Log state change
       }
       break;
 
     case STATE_RELAY2_ACTIVE:
       if (stopPressed) {
-        // Allow manual abort of the 15-second relay 2 period
         timeRemaining = 0;
         currentState = STATE_IDLE;
         digitalWrite(RELAY2_PIN, RELAY_OFF);
+        lastStateChangeMillis = currentMillis; // Log state change
       } else if (currentMillis - previousMillis >= 1000) {
         previousMillis += 1000;
         timeRemaining--;
         
         if (timeRemaining <= 0) {
-          // Relay 2 finished
           digitalWrite(RELAY2_PIN, RELAY_OFF);
           currentState = STATE_IDLE;
+          lastStateChangeMillis = currentMillis; // Log state change
         }
       }
       break;
